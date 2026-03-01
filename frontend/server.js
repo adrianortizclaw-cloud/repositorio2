@@ -5,11 +5,12 @@ const app = express();
 const port = process.env.PORT || 3000;
 
 app.use(express.static(path.join(__dirname, "public")));
+app.use("/src", express.static(path.join(__dirname, "src")));
 
 app.get("*", (req, res) => {
   res.sendFile(path.join(__dirname, "public", "index.html"));
 });
 
 app.listen(port, () => {
-  console.log(`InstagramProyect SPA escuchando en http://localhost:${port}`);
+  console.log(`InstagramProyect SPA listening on http://localhost:${port}`);
 });
