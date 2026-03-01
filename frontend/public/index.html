@@ -24,6 +24,9 @@
         padding: 2rem;
         box-sizing: border-box;
       }
+      #auth-page[data-cloak] {
+        visibility: hidden;
+      }
       .auth-wrapper {
         display: flex;
         height: 100vh;
@@ -187,7 +190,7 @@
     </style>
   </head>
   <body>
-    <div class="page" id="auth-page">
+    <div class="page" id="auth-page" data-cloak="true">
       <div class="auth-wrapper">
         <div class="auth-card">
           <div class="tab-selector">

@@ -217,6 +217,7 @@ function navigate(path, replace = false) {
 }
 
 function renderRoute() {
+  authPage.removeAttribute("data-cloak");
   const token = readToken();
   if (token) {
     if (window.location.pathname !== DASHBOARD_PATH) {
