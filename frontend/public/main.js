@@ -102,6 +102,7 @@ async function handleRegister(event) {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
+    credentials: "include",
   });
   if (!response.ok) {
     const detail = await response.json().catch(() => ({}));
@@ -109,7 +110,11 @@ async function handleRegister(event) {
     return;
   }
   const data = await response.json();
-  setStatus(`Registrado ${data.role}: ${data.msg}`);
+  if (data.access_token) {
+    storeToken(data.access_token);
+    await updateProfile(data.access_token);
+  }
+  setStatus(`Registrado ${data.role}: usuario creado`);
 }
 
 async function updateProfile(token) {

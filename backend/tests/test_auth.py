@@ -64,7 +64,7 @@ def test_refresh_after_logout_is_denied() -> None:
     assert refresh_response.status_code == 401
 
 
-def test_register_flow_and_login() -> None:
+def test_register_flow_and_auto_login() -> None:
     new_user = "tester@example.com"
     new_password = "ultrasecret"
     response = client.post(
@@ -72,10 +72,14 @@ def test_register_flow_and_login() -> None:
         json={"username": new_user, "password": new_password},
     )
     assert response.status_code == 200
-    assert response.json()["role"] == "client"
+    payload = response.json()
+    assert "access_token" in payload
 
     USER_CREDENTIALS[new_user] = new_password
-    token = login(new_user)
-    profile = client.get("/auth/me", headers={"Authorization": f"Bearer {token}"})
+    profile = client.get("/auth/me", headers={"Authorization": f"Bearer {payload['access_token']}"})
     assert profile.status_code == 200
     assert profile.json()["username"] == new_user
+
+    # Further login with the new user should also work
+    token = login(new_user)
+    assert token

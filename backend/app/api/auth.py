@@ -53,12 +53,7 @@ def _build_refresh_response(access_token: str, refresh_token: str, role: str) ->
     return response
 
 
-@router.post("/login")
-def login(form: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
-    user_record = get_user_by_username(db, form.username)
-    if not user_record or not verify_password(form.password, user_record.hashed_password):
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Credenciales inválidas")
-
+def _issue_tokens(db: Session, user_record: User) -> JSONResponse:
     access_token_delta = timedelta(minutes=settings.access_token_expire_minutes)
     refresh_token_delta = timedelta(days=settings.refresh_token_expire_days)
 
@@ -72,6 +67,15 @@ def login(form: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get
 
     access_token = create_access_token(data={"sub": user_record.username, "role": user_record.role}, expires_delta=access_token_delta)
     return _build_refresh_response(access_token, refresh_token, user_record.role)
+
+
+@router.post("/login")
+def login(form: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
+    user_record = get_user_by_username(db, form.username)
+    if not user_record or not verify_password(form.password, user_record.hashed_password):
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Credenciales inválidas")
+
+    return _issue_tokens(db, user_record)
 
 
 @router.post("/refresh")
@@ -93,19 +97,7 @@ def refresh(refresh_token: Optional[str] = Cookie(None), db: Session = Depends(g
 
     revoke_refresh_token(db, token_record)
 
-    access_token_delta = timedelta(minutes=settings.access_token_expire_minutes)
-    refresh_token_delta = timedelta(days=settings.refresh_token_expire_days)
-
-    new_refresh_jti = uuid4().hex
-    new_refresh_token = create_refresh_token(
-        data={"sub": user_record.username, "role": user_record.role, "jti": new_refresh_jti},
-        expires_delta=refresh_token_delta,
-    )
-    new_refresh_hash = hash_token(new_refresh_token)
-    create_refresh_token_record(db, new_refresh_jti, new_refresh_hash, user_record.id, datetime.utcnow() + refresh_token_delta)
-
-    new_access_token = create_access_token(data={"sub": user_record.username, "role": user_record.role}, expires_delta=access_token_delta)
-    return _build_refresh_response(new_access_token, new_refresh_token, user_record.role)
+    return _issue_tokens(db, user_record)
 
 
 @router.post("/logout")
@@ -135,7 +127,7 @@ def admin_only(user: User = Depends(get_current_user(role=Role.ADMIN))):
 
 
 @router.post("/register")
-def register(payload: RegisterPayload, db: Session = Depends(get_db)):
+def register(payload: RegisterPayload, db: Session = Depends(get_db)) -> JSONResponse:
     existing = get_user_by_username(db, payload.username)
     if existing:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Usuario ya registrado")
@@ -148,4 +140,4 @@ def register(payload: RegisterPayload, db: Session = Depends(get_db)):
     db.add(user)
     db.commit()
     db.refresh(user)
-    return {"msg": f"Usuario {user.username} creado", "role": user.role}
+    return _issue_tokens(db, user)
