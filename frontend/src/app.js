@@ -1,4 +1,3 @@
-import "./styles/main.css";
 import { createLoginPage } from "./pages/login.js";
 import { createDashboardPage } from "./pages/dashboard.js";
 import { createModal } from "./components/modal.js";
@@ -30,18 +29,23 @@ const loginPage = createLoginPage({
 
 const dashboardPage = createDashboardPage({
   onLogout: async () => {
-    await logoutRequest();
+    try {
+      await logoutRequest();
+    } catch (_) {
+      // ignoramos errores de logout remoto
+    }
     clearToken();
+    dashboardPage.classList.remove("active");
     showAuth();
   },
 });
 
-function setFeedback(message) {
-  loginPage.setStatus(message);
+function setFeedback(msg) {
+  loginPage.setStatus(msg);
 }
 
-function storeToken(token) {
-  localStorage.setItem(STORAGE_KEY, token);
+function storeToken(t) {
+  localStorage.setItem(STORAGE_KEY, t);
 }
 
 function readToken() {
@@ -53,52 +57,32 @@ function clearToken() {
 }
 
 function navigate(path, replace = false) {
-  if (replace) {
-    window.history.replaceState(null, "", path);
-  } else {
-    window.history.pushState(null, "", path);
-  }
+  replace ? window.history.replaceState(null, "", path) : window.history.pushState(null, "", path);
+}
+
+function showAuth() {
+  root.innerHTML = "";
+  root.appendChild(loginPage.element);
+  navigate(AUTH_PATH, true);
+}
+
+function renderDashboard(username, role) {
+  root.innerHTML = "";
+  dashboardPage.classList.add("active");
+  dashboardPage.querySelector("#dashboard-subtitle").textContent = `Último acceso: ${new Date().toLocaleString()}`;
+  root.appendChild(dashboardPage);
+  navigate(DASHBOARD_PATH, true);
 }
 
 async function updateProfile(token) {
   try {
     const profile = await fetchProfile(token);
     renderDashboard(profile.username, profile.role);
-  } catch (error) {
+  } catch {
     clearToken();
     showAuth();
     setFeedback("Tu sesión expiró, vuelve a autenticarte");
   }
-}
-
-function renderDashboard(username, role) {
-  root.innerHTML = "";
-  root.appendChild(dashboardPage);
-  setFeedback(`Autenticado como ${username} (${role})`);
-  navigate(DASHBOARD_PATH, true);
-}
-
-function showAuth() {
-  root.innerHTML = "";
-  root.appendChild(loginPage.element);
-}
-
-function renderRoute() {
-  const token = readToken();
-  if (token) {
-    authPage()?.classList.add("hidden");
-    document.body.classList.remove("route-loading");
-    if (window.location.pathname !== DASHBOARD_PATH) {
-      navigate(DASHBOARD_PATH, true);
-    }
-    updateProfile(token);
-    return;
-  }
-  if (window.location.pathname !== AUTH_PATH) {
-    navigate(AUTH_PATH, true);
-  }
-  document.body.classList.remove("route-loading");
-  showAuth();
 }
 
 async function handleConfirm(code, username) {
@@ -107,34 +91,26 @@ async function handleConfirm(code, username) {
     storeToken(payload.access_token);
     modal.hide();
     await updateProfile(payload.access_token);
-  } catch (error) {
-    setFeedback(error.message);
+  } catch (e) {
+    modal.modal.querySelector("#modal-preview").textContent = e.message;
   }
 }
 
 function renderRoute() {
   const token = readToken();
   if (token) {
-    authPage()?.classList.add("hidden");
+    root.innerHTML = "";
+    dashboardPage.classList.add("active");
+    root.appendChild(dashboardPage);
     document.body.classList.remove("route-loading");
-    if (window.location.pathname !== DASHBOARD_PATH) {
-      navigate(DASHBOARD_PATH, true);
-    }
+    navigate(DASHBOARD_PATH, true);
     updateProfile(token);
     return;
   }
-  if (window.location.pathname !== AUTH_PATH) {
-    navigate(AUTH_PATH, true);
-  }
+  navigate(AUTH_PATH, true);
   document.body.classList.remove("route-loading");
   showAuth();
 }
 
-function authPage() {
-  return document.querySelector("#auth-page");
-}
-
-window.addEventListener("load", () => {
-  renderRoute();
-});
+window.addEventListener("load", renderRoute);
 window.addEventListener("popstate", renderRoute);
