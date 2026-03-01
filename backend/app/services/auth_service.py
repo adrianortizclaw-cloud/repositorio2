@@ -1,6 +1,6 @@
-from datetime import datetime, timedelta
+from ..core.time import ensure_utc, utcnow
+from datetime import datetime
 from typing import Optional
-from uuid import uuid4
 
 from sqlalchemy.orm import Session
 
@@ -8,7 +8,6 @@ from ..core.security import hash_token, verify_password
 from ..models.user import User, RefreshToken
 from ..models.auth_code import AuthCode
 from ..models.pending_registration import PendingRegistration
-from ..core.config import settings
 
 
 def get_user_by_username(db: Session, username: str) -> Optional[User]:
@@ -29,7 +28,7 @@ def get_refresh_token_by_jti(db: Session, jti: str) -> Optional[RefreshToken]:
 
 def revoke_refresh_token(db: Session, token: RefreshToken) -> None:
     token.revoked = True
-    token.revoked_at = datetime.utcnow()
+    token.revoked_at = utcnow()
     db.add(token)
     db.commit()
 
@@ -84,7 +83,7 @@ def get_valid_auth_code(db: Session, username: str, code: str, purpose: str = "r
             return None
         query = query.filter(AuthCode.user_id == user.id)
     record = query.order_by(AuthCode.created_at.desc()).first()
-    if not record or record.expires_at < datetime.utcnow():
+    if not record or ensure_utc(record.expires_at) < utcnow():
         return None
     if not verify_password(code, record.code_hash):
         return None

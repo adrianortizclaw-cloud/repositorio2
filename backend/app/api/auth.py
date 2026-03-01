@@ -1,5 +1,6 @@
 import random
-from datetime import datetime, timedelta
+from datetime import timedelta
+from ..core.time import ensure_utc, utcnow
 from typing import Optional
 from uuid import uuid4
 
@@ -77,7 +78,7 @@ def _issue_tokens(db: Session, user_record: User) -> JSONResponse:
         expires_delta=refresh_token_delta,
     )
     refresh_hash = hash_token(refresh_token)
-    create_refresh_token_record(db, refresh_jti, refresh_hash, user_record.id, datetime.utcnow() + refresh_token_delta)
+    create_refresh_token_record(db, refresh_jti, refresh_hash, user_record.id, utcnow() + refresh_token_delta)
 
     access_token = create_access_token(data={"sub": user_record.username, "role": user_record.role}, expires_delta=access_token_delta)
     return _build_refresh_response(access_token, refresh_token, user_record.role)
@@ -85,7 +86,7 @@ def _issue_tokens(db: Session, user_record: User) -> JSONResponse:
 
 def _send_confirmation_code(db: Session, pending: PendingRegistration) -> JSONResponse:
     code = f"{random.randint(0, 999999):06d}"
-    expires = datetime.utcnow() + timedelta(minutes=settings.auth_code_expire_minutes)
+    expires = utcnow() + timedelta(minutes=settings.auth_code_expire_minutes)
     create_auth_code(db, code, expires, purpose="register", pending=pending)
     send_confirmation_email(pending.username, code)
     return JSONResponse({
@@ -110,7 +111,7 @@ def register(payload: RegisterPayload, db: Session = Depends(get_db)) -> JSONRes
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Usuario ya registrado")
     if pending := get_pending_registration(db, payload.username):
         delete_pending_registration(db, pending)
-    expires = datetime.utcnow() + timedelta(minutes=settings.auth_code_expire_minutes)
+    expires = utcnow() + timedelta(minutes=settings.auth_code_expire_minutes)
     pending = create_pending_registration(db, payload.username, get_password_hash(payload.password), payload.role.value, payload.full_name, expires)
     return _send_confirmation_code(db, pending)
 
@@ -156,7 +157,7 @@ def refresh(refresh_token: Optional[str] = Cookie(None), db: Session = Depends(g
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Token inválido")
 
     token_record = get_refresh_token_by_jti(db, token_payload.jti)
-    if not token_record or token_record.revoked or token_record.expires_at < datetime.utcnow():
+    if not token_record or token_record.revoked or ensure_utc(token_record.expires_at) < utcnow():
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Token expirado o revocado")
 
     user_record: User = get_user_by_username(db, token_payload.username)

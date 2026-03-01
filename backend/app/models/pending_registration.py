@@ -1,5 +1,5 @@
 import uuid
-from datetime import datetime
+from ..core.time import utcnow
 from sqlalchemy import Column, String, DateTime
 
 from ..models.base import Base
@@ -13,5 +13,5 @@ class PendingRegistration(Base):
     hashed_password = Column(String(255), nullable=False)
     role = Column(String(32), nullable=False, default="client")
     full_name = Column(String(255), nullable=True)
-    created_at = Column(DateTime(timezone=True), nullable=False, default=datetime.utcnow)
+    created_at = Column(DateTime(timezone=True), nullable=False, default=utcnow)
     expires_at = Column(DateTime(timezone=True), nullable=False)

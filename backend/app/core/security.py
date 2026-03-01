@@ -1,4 +1,6 @@
-from datetime import datetime, timedelta
+from datetime import timedelta
+import base64
+import hashlib
 from typing import Any, Dict, Optional
 
 from fastapi import HTTPException
@@ -7,6 +9,7 @@ from passlib.context import CryptContext
 
 from ..schemas.token import TokenPayload
 from .config import settings
+from .time import utcnow
 
 pwd_context = CryptContext(schemes=["pbkdf2_sha256"], deprecated="auto")
 
@@ -25,14 +28,14 @@ def hash_token(value: str) -> str:
 
 def create_access_token(data: Dict[str, Any], expires_delta: Optional[timedelta] = None) -> str:
     to_encode = data.copy()
-    expire = datetime.utcnow() + (expires_delta or timedelta(minutes=settings.access_token_expire_minutes))
+    expire = utcnow() + (expires_delta or timedelta(minutes=settings.access_token_expire_minutes))
     to_encode.update({"exp": expire, "type": "access"})
     return jwt.encode(to_encode, settings.secret_key, algorithm=settings.algorithm)
 
 
 def create_refresh_token(data: Dict[str, Any], expires_delta: Optional[timedelta] = None) -> str:
     to_encode = data.copy()
-    expire = datetime.utcnow() + (expires_delta or timedelta(days=settings.refresh_token_expire_days))
+    expire = utcnow() + (expires_delta or timedelta(days=settings.refresh_token_expire_days))
     to_encode.update({"exp": expire, "type": "refresh"})
     return jwt.encode(to_encode, settings.secret_key, algorithm=settings.algorithm)
 

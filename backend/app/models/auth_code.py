@@ -1,5 +1,5 @@
 import uuid
-from datetime import datetime
+from ..core.time import utcnow
 from sqlalchemy import Column, String, DateTime, Boolean, ForeignKey
 from sqlalchemy.orm import relationship
 
@@ -14,7 +14,7 @@ class AuthCode(Base):
     pending_registration_id = Column(String(36), ForeignKey("pending_registrations.id"), nullable=True)
     code_hash = Column(String(255), nullable=False)
     purpose = Column(String(32), nullable=False, default="register")
-    created_at = Column(DateTime(timezone=True), nullable=False, default=datetime.utcnow)
+    created_at = Column(DateTime(timezone=True), nullable=False, default=utcnow)
     expires_at = Column(DateTime(timezone=True), nullable=False)
     used = Column(Boolean, default=False, nullable=False)
 
