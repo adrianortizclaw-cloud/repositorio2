@@ -7,6 +7,12 @@ Instancia Postgres para almacenar datos de automatización, deduplicación y ana
 - El volumen `/var/lib/postgresql/data` queda montado desde `docker-compose`.
 - Las variables del contenedor se parametrizan desde `database/.env.example`.
 
+## Estructura propuesta
+- `migrations/` – scripts SQL o versiones Alembic para evolucionar esquemas.
+- `scripts/` – helpers para dumps, validaciones de integridad o tareas de mantenimiento.
+- `backups/` – espacio para scripts que disparan `pg_dump` y rotaciones locales (hosting). 
+- `docs/` – procedimientos de recuperación, runbooks y listas de chequeo.
+
 ## Estrategia de backups (plan)
 1. Copias diarias en frío usando `pg_dump` desde otro contenedor sincronizado con los volúmenes.
 2. Transferencia incremental a un bucket S3 (o compatible) con `rclone`/`aws-cli` en un job separado.
