@@ -8,3 +8,5 @@ sqlalchemy
 authlib
 alembic
 python-dotenv
+pydantic-settings
+python-multipart
