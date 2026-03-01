@@ -4,23 +4,24 @@ const authPage = document.getElementById("auth-page");
 const dashboardPage = document.getElementById("dashboard-page");
 const loginPane = document.getElementById("login-pane");
 const registerPane = document.getElementById("register-pane");
-const confirmSection = document.getElementById("confirm-section");
-const confirmMessage = document.getElementById("confirm-message");
-const confirmPreview = document.getElementById("confirm-preview");
 const loginTabButtons = document.querySelectorAll(".tab-selector button");
 const statusEl = document.getElementById("status");
 const dashboardSubtitle = document.getElementById("dashboard-subtitle");
 
 const loginBtn = document.getElementById("login-btn");
 const registerBtn = document.getElementById("register-btn");
-const confirmBtn = document.getElementById("confirm-btn");
 const dashboardLogout = document.getElementById("dashboard-logout");
+const modal = document.getElementById("code-modal");
+const modalMessage = document.getElementById("modal-message");
+const modalPreview = document.getElementById("modal-preview");
+const modalCodeInput = document.getElementById("modal-code");
+const modalConfirm = document.getElementById("modal-confirm");
+const modalClose = document.getElementById("modal-close");
 
 const loginUsername = loginPane.querySelector("input[name=\"login-username\"]");
 const loginPassword = loginPane.querySelector("input[name=\"login-password\"]");
 const registerUsername = registerPane.querySelector("input[name=\"register-username\"]");
 const registerPassword = registerPane.querySelector("input[name=\"register-password\"]");
-const confirmCodeInput = document.getElementById("confirm-code");
 
 const STORAGE_KEY = "instagramproyect_access";
 let pendingUser = null;
@@ -50,42 +51,19 @@ function showTab(tab) {
   });
 }
 
-function showConfirmSection(username, purpose, preview) {
+function showModal(username, purpose, preview) {
   pendingUser = username;
   pendingPurpose = purpose;
-  confirmSection.classList.remove("hidden");
-  confirmCodeInput.value = "";
-  confirmMessage.textContent = `Código enviado a ${username}.`;
-  confirmPreview.textContent = preview ? `Código (testing): ${preview}` : "";
+  modalMessage.textContent = `Se te ha enviado un código a ${username}.`;
+  modalPreview.textContent = preview ? `Código (test): ${preview}` : "";
+  modalCodeInput.value = "";
+  modal.classList.remove("hidden");
+  modalCodeInput.focus();
 }
 
-function hideConfirmSection() {
-  confirmSection.classList.add("hidden");
-  confirmMessage.textContent = "";
-  confirmPreview.textContent = "";
-  pendingUser = null;
-  pendingPurpose = null;
-}
-
-async function updateProfile(token) {
-  try {
-    const profile = await fetch(`${API_BASE}/auth/me`, {
-      headers: { Authorization: `Bearer ${token}` },
-      credentials: "include",
-    });
-    if (profile.ok) {
-      const payload = await profile.json();
-      setStatus(`Autenticado como ${payload.username} (${payload.role})`);
-      dashboardSubtitle.textContent = `Último acceso: ${new Date().toLocaleString()}`;
-      showDashboard(payload.username, payload.role);
-    } else {
-      throw new Error("Token inválido");
-    }
-  } catch (error) {
-    clearToken();
-    showAuth();
-    setStatus("Tu sesión expiró, vuelve a autenticarte");
-  }
+function hideModal() {
+  modal.classList.add("hidden");
+  modalPreview.textContent = "";
 }
 
 function showDashboard(username, role) {
@@ -93,6 +71,7 @@ function showDashboard(username, role) {
   dashboardPage.classList.add("active");
   dashboardPage.classList.remove("hidden");
   setStatus(`Autenticado como ${username} (${role})`);
+  dashboardSubtitle.textContent = `Último acceso: ${new Date().toLocaleString()}`;
 }
 
 function showAuth() {
@@ -102,32 +81,29 @@ function showAuth() {
   showTab("login");
 }
 
-async function requestCode(endpoint, payload, options = {}) {
-  const response = await fetch(`${API_BASE}/auth/${endpoint}`, {
-    method: "POST",
-    headers: options.headers || {},
-    body: options.body,
-    credentials: "include",
-  });
-  const data = await response.json().catch(() => ({}));
+async function requestCode(endpoint, options) {
+  const response = await fetch(`${API_BASE}/auth/${endpoint}`, options);
+  const payload = await response.json().catch(() => ({}));
   if (!response.ok) {
-    throw new Error(data.detail || "Error de autenticación");
+    throw new Error(payload.detail || "Error de autenticación");
   }
-  return data;
+  return payload;
 }
 
 async function handleLogin(event) {
   event.preventDefault();
   try {
-    const data = await requestCode("login", {
+    const payload = await requestCode("login", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
       body: new URLSearchParams({
         username: loginUsername.value.trim(),
         password: loginPassword.value.trim(),
       }),
-      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      credentials: "include",
     });
-    setStatus(`Código enviado a ${data.username}`);
-    showConfirmSection(data.username, data.purpose, data.code_preview);
+    setStatus(`Te hemos enviado un código a ${payload.username}.`);
+    showModal(payload.username, payload.purpose, payload.code_preview);
   } catch (error) {
     setStatus(error.message);
   }
@@ -136,46 +112,38 @@ async function handleLogin(event) {
 async function handleRegister(event) {
   event.preventDefault();
   try {
-    const payload = {
-      username: registerUsername.value.trim(),
-      password: registerPassword.value.trim(),
-    };
-    const data = await requestCode("register", {
-      body: JSON.stringify(payload),
+    const payload = await requestCode("register", {
+      method: "POST",
       headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        username: registerUsername.value.trim(),
+        password: registerPassword.value.trim(),
+      }),
+      credentials: "include",
     });
-    setStatus(`Código enviado a ${data.username}`);
-    showConfirmSection(data.username, data.purpose, data.code_preview);
+    setStatus(`Código enviado a ${payload.username}.`);
+    showModal(payload.username, payload.purpose, payload.code_preview);
   } catch (error) {
     setStatus(error.message);
   }
 }
 
-async function handleConfirm(event) {
-  event.preventDefault();
-  if (!pendingUser) {
-    setStatus("Inicia primero login o registro");
-    return;
-  }
-  const code = confirmCodeInput.value.trim();
-  if (!code) {
-    setStatus("Introduce el código de verificación");
+async function handleConfirm() {
+  const code = modalCodeInput.value.trim();
+  if (!code || !pendingUser) {
+    setStatus("Introduce el código recibido por correo");
     return;
   }
   try {
-    const response = await fetch(`${API_BASE}/auth/confirm`, {
+    const response = await requestCode("confirm", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ username: pendingUser, code, purpose: pendingPurpose }),
       credentials: "include",
     });
-    const payload = await response.json();
-    if (!response.ok) {
-      throw new Error(payload.detail || "Código incorrecto");
-    }
-    storeToken(payload.access_token);
-    hideConfirmSection();
-    await updateProfile(payload.access_token);
+    storeToken(response.access_token);
+    hideModal();
+    await updateProfile(response.access_token);
   } catch (error) {
     setStatus(error.message);
   }
@@ -187,14 +155,36 @@ async function handleLogout() {
     credentials: "include",
   });
   clearToken();
-  hideConfirmSection();
+  hideModal();
   showAuth();
   setStatus("Sesión cerrada");
 }
 
+async function updateProfile(token) {
+  try {
+    const response = await fetch(`${API_BASE}/auth/me`, {
+      headers: { Authorization: `Bearer ${token}` },
+      credentials: "include",
+    });
+    if (!response.ok) {
+      throw new Error("Token inválido");
+    }
+    const payload = await response.json();
+    showDashboard(payload.username, payload.role);
+  } catch (error) {
+    clearToken();
+    showAuth();
+    setStatus("Tu sesión expiró, vuelve a autenticarte");
+  }
+}
+
 loginBtn.addEventListener("click", handleLogin);
 registerBtn.addEventListener("click", handleRegister);
-confirmBtn.addEventListener("click", handleConfirm);
+modalConfirm.addEventListener("click", handleConfirm);
+modalClose.addEventListener("click", () => {
+  hideModal();
+  setStatus("Necesitas autenticarte");
+});
 dashboardLogout.addEventListener("click", handleLogout);
 
 loginTabButtons.forEach((button) => {
