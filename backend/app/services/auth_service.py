@@ -52,6 +52,7 @@ def get_pending_registration(db: Session, username: str) -> Optional[PendingRegi
 
 
 def delete_pending_registration(db: Session, pending: PendingRegistration) -> None:
+    db.query(AuthCode).filter(AuthCode.pending_registration_id == pending.id).update({"pending_registration_id": None}, synchronize_session=False)
     db.delete(pending)
     db.commit()
 

@@ -133,13 +133,30 @@ def test_confirm_registration_cleans_up_pending_and_refresh_relationships() -> N
     session = SessionLocal()
     try:
         assert session.query(PendingRegistration).filter(PendingRegistration.id == pending_id).first() is None
-        auth_code = session.query(AuthCode).filter(AuthCode.pending_registration_id == pending_id).first()
-        assert auth_code is not None
-        assert auth_code.used
         user = session.query(User).filter(User.username == confirm_username).first()
         assert user is not None
+        auth_code = session.query(AuthCode).filter(AuthCode.user_id == user.id).first()
+        assert auth_code is not None
+        assert auth_code.used
+        assert auth_code.pending_registration_id is None
         refresh_token = session.query(RefreshToken).filter(RefreshToken.user_id == user.id).first()
         assert refresh_token is not None
         assert not refresh_token.revoked
+    finally:
+        session.close()
+
+
+def test_confirm_registration_nullifies_auth_code_pending_reference() -> None:
+    username = "nullify@example.com"
+    password = "nullify-pass"
+    code, _, purpose = register_user(username, password)
+    confirm_code(username, code, purpose=purpose)
+    session = SessionLocal()
+    try:
+        user = session.query(User).filter(User.username == username).first()
+        assert user is not None
+        auth_code = session.query(AuthCode).filter(AuthCode.user_id == user.id).first()
+        assert auth_code is not None
+        assert auth_code.pending_registration_id is None
     finally:
         session.close()

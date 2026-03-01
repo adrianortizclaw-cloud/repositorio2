@@ -135,6 +135,10 @@ def confirm(payload: ConfirmPayload, db: Session = Depends(get_db)) -> JSONRespo
         db.add(user)
         db.commit()
         db.refresh(user)
+        code_record.user_id = user.id
+        code_record.pending_registration_id = None
+        db.add(code_record)
+        db.commit()
         delete_pending_registration(db, pending)
         return _issue_tokens(db, user)
     user_record = get_user_by_username(db, payload.username)
