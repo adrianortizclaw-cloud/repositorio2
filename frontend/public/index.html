@@ -5,10 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>InstagramProyect · Auth</title>
     <style>
-      :root {
-        font-family: "Inter", "SF Pro Display", system-ui, sans-serif;
-        color: #0f172a;
-        background: #f5f5f7;
+      body.route-loading #auth-page,
+      body.route-loading #dashboard-page {
+        visibility: hidden;
+        opacity: 0;
       }
       body {
         min-height: 100vh;
@@ -18,14 +18,16 @@
         justify-content: center;
         background: radial-gradient(circle at top, #ffffff, #e0e7ff 60%);
       }
+      :root {
+        font-family: "Inter", "SF Pro Display", system-ui, sans-serif;
+        color: #0f172a;
+        background: #f5f5f7;
+      }
       .page {
         width: 100%;
         max-width: 1200px;
         padding: 2rem;
         box-sizing: border-box;
-      }
-      #auth-page[data-cloak] {
-        visibility: hidden;
       }
       .auth-wrapper {
         display: flex;
@@ -83,11 +85,10 @@
         margin-bottom: 0.25rem;
       }
       input {
-        width: calc(100% - 32px);
+        width: calc(100% - 28px);
         padding: 0.85rem 1rem;
         border-radius: 0.85rem;
         border: 1px solid #e2e8f0;
-        margin-bottom: 1rem;
         font-size: 1rem;
         background: #f8fafc;
       }
@@ -188,9 +189,20 @@
         color: #334155;
       }
     </style>
+    <script>
+      (function () {
+        const loginPath = "/login";
+        const dashboardPath = "/dashboard";
+        const token = localStorage.getItem("instagramproyect_access");
+        const dest = token ? dashboardPath : loginPath;
+        if (window.location.pathname !== dest) {
+          window.history.replaceState(null, "", dest);
+        }
+      })();
+    </script>
   </head>
-  <body>
-    <div class="page" id="auth-page" data-cloak="true">
+  <body class="route-loading">
+    <div class="page" id="auth-page">
       <div class="auth-wrapper">
         <div class="auth-card">
           <div class="tab-selector">

@@ -217,6 +217,7 @@ function navigate(path, replace = false) {
 }
 
 function renderRoute() {
+  document.body.classList.remove("route-loading");
   authPage.removeAttribute("data-cloak");
   const token = readToken();
   if (token) {
