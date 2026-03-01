@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>InstagramProyect · Auth</title>
+    <style>
+      body {
+        font-family: system-ui, sans-serif;
+        background: #0f172a;
+        color: #f8fafc;
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      .card {
+        background: #1f2937;
+        padding: 2rem;
+        border-radius: 1rem;
+        width: min(420px, 90vw);
+        box-shadow: 0 10px 20px rgba(15, 23, 42, 0.6);
+      }
+      input,
+      button {
+        width: 100%;
+        padding: 0.75rem;
+        margin-bottom: 1rem;
+        border-radius: 0.5rem;
+        border: none;
+      }
+      button {
+        background: #2563eb;
+        color: #fff;
+        font-weight: 600;
+      }
+      pre {
+        background: #0f172a;
+        padding: 1rem;
+        border-radius: 0.5rem;
+        overflow: auto;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="card">
+      <h1>InstagramProyect · Auth</h1>
+      <form id="login-form">
+        <label>Usuario (client@example.com)</label>
+        <input type="text" name="username" value="client@example.com" required />
+        <label>Contraseña (secret)</label>
+        <input type="password" name="password" value="secret" required />
+        <button type="submit">Entrar</button>
+      </form>
+      <button id="logout-btn">Cerrar sesión</button>
+      <button id="refresh-btn">Forzar refresh token</button>
+      <h2>Estado</h2>
+      <pre id="status">Sin token</pre>
+    </div>
+    <script>
+      window.APP_CONFIG = {
+        apiBase:
+          window.location.hostname === "localhost" ? "http://localhost:8000" : "http://backend:8000",
+      };
+    </script>
+    <script src="./main.js"></script>
+  </body>
+</html>

@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from .api import auth
 from .core.config import settings
+from .database.session import init_db
 
 app = FastAPI(title="InstagramProyect API")
 
@@ -15,6 +16,10 @@ app.add_middleware(
 )
 
 app.include_router(auth.router, prefix="/auth", tags=["auth"])
+
+@app.on_event("startup")
+def on_startup():
+    init_db()
 
 @app.get("/health")
 def health():

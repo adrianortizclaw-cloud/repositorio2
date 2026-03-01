@@ -1,11 +1,11 @@
-FROM node:20-alpine AS builder
+FROM node:20-alpine
 
 WORKDIR /app
 
-# Dependencias definidas manualmente para mantener la estructura limpia.
 COPY package.json package-lock.json ./
 RUN npm ci --only=production
 
 COPY . .
 
+EXPOSE 3000
 CMD ["npm", "start"]

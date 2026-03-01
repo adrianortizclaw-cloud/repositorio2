@@ -5,7 +5,7 @@ from fastapi import HTTPException
 from jose import JWTError, jwt
 from passlib.context import CryptContext
 
-from ..models.user import TokenPayload
+from ..schemas.token import TokenPayload
 from .config import settings
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
@@ -19,12 +19,15 @@ def get_password_hash(password: str) -> str:
     return pwd_context.hash(password)
 
 
+def hash_token(value: str) -> str:
+    return pwd_context.hash(value)
+
+
 def create_access_token(data: Dict[str, Any], expires_delta: Optional[timedelta] = None) -> str:
     to_encode = data.copy()
     expire = datetime.utcnow() + (expires_delta or timedelta(minutes=settings.access_token_expire_minutes))
     to_encode.update({"exp": expire, "type": "access"})
-    encoded_jwt = jwt.encode(to_encode, settings.secret_key, algorithm=settings.algorithm)
-    return encoded_jwt
+    return jwt.encode(to_encode, settings.secret_key, algorithm=settings.algorithm)
 
 
 def create_refresh_token(data: Dict[str, Any], expires_delta: Optional[timedelta] = None) -> str:
@@ -39,13 +42,15 @@ def decode_token(token: str) -> TokenPayload:
         payload = jwt.decode(token, settings.secret_key, algorithms=[settings.algorithm])
     except JWTError:
         raise HTTPException(status_code=401, detail="Token inválido")
-    username: str = payload.get("sub")
+    username: Optional[str] = payload.get("sub")
     role: str = payload.get("role", "guest")
+    token_type: str = payload.get("type", "access")
+    jti: Optional[str] = payload.get("jti")
     if username is None:
         raise HTTPException(status_code=401, detail="Token inválido")
-    return TokenPayload(username=username, role=role)
+    return TokenPayload(username=username, role=role, token_type=token_type, jti=jti)
 
 
-def get_token_role(token: str) -> str:
+def get_token_role_value(token: str) -> str:
     payload = jwt.decode(token, settings.secret_key, algorithms=[settings.algorithm])
     return payload.get("role", "guest")
