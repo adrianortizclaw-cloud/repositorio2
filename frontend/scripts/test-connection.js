@@ -40,11 +40,11 @@ async function register(username, password) {
   return response.json();
 }
 
-async function confirm(username, code, purpose = "login") {
+async function confirm(username, code) {
   const response = await fetch(`${API_BASE}/auth/confirm`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ username, code, purpose }),
+    body: JSON.stringify({ username, code, purpose: "register" }),
   });
   if (!response.ok) {
     const detail = await response.json().catch(() => ({}));
@@ -71,18 +71,14 @@ async function run() {
   console.log("Health OK", health);
 
   const loginRes = await login("client@example.com", "secret");
-  console.log("Login code sent", loginRes.code_preview);
+  console.log("Login tokens", loginRes);
 
-  const confirmRes = await confirm(loginRes.username, loginRes.code_preview, loginRes.purpose);
-  console.log("Confirmed, tokens", confirmRes);
-
-  const profileData = await profile(confirmRes.access_token);
+  const profileData = await profile(loginRes.access_token);
   console.log("Profile", profileData);
 
   const adminLogin = await login("admin@example.com", "secret");
-  const adminConfirm = await confirm(adminLogin.username, adminLogin.code_preview, adminLogin.purpose);
   const adminStatus = await fetch(`${API_BASE}/auth/admin`, {
-    headers: { Authorization: `Bearer ${adminConfirm.access_token}` },
+    headers: { Authorization: `Bearer ${adminLogin.access_token}` },
   });
   if (!adminStatus.ok) {
     throw new Error(`Admin route failed (${adminStatus.status})`);
@@ -91,7 +87,7 @@ async function run() {
 
   const registerEmail = `smoke+${Date.now()}@example.com`;
   const registerRes = await register(registerEmail, "pass1234");
-  const registerConfirm = await confirm(registerRes.username, registerRes.code_preview, registerRes.purpose);
+  const registerConfirm = await confirm(registerRes.username, registerRes.code_preview);
   console.log("Register + confirm OK", registerConfirm.access_token);
 }
 

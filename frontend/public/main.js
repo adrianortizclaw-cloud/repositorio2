@@ -5,7 +5,7 @@ const dashboardPage = document.getElementById("dashboard-page");
 const loginPane = document.getElementById("login-pane");
 const registerPane = document.getElementById("register-pane");
 const loginTabButtons = document.querySelectorAll(".tab-selector button");
-const statusEl = document.getElementById("status");
+const feedbackEl = document.getElementById("status");
 const dashboardSubtitle = document.getElementById("dashboard-subtitle");
 
 const loginBtn = document.getElementById("login-btn");
@@ -27,8 +27,8 @@ const STORAGE_KEY = "instagramproyect_access";
 let pendingUser = null;
 let pendingPurpose = null;
 
-function setStatus(text) {
-  statusEl.textContent = text;
+function setFeedback(text) {
+  feedbackEl.textContent = text;
 }
 
 function storeToken(token) {
@@ -54,7 +54,7 @@ function showTab(tab) {
 function showModal(username, purpose, preview) {
   pendingUser = username;
   pendingPurpose = purpose;
-  modalMessage.textContent = `Se te ha enviado un código a ${username}.`;
+  modalMessage.textContent = "Se te ha enviado un código a tu email, escríbelo aquí.";
   modalPreview.textContent = preview ? `Código (test): ${preview}` : "";
   modalCodeInput.value = "";
   modal.classList.remove("hidden");
@@ -70,8 +70,8 @@ function showDashboard(username, role) {
   authPage.classList.add("hidden");
   dashboardPage.classList.add("active");
   dashboardPage.classList.remove("hidden");
-  setStatus(`Autenticado como ${username} (${role})`);
   dashboardSubtitle.textContent = `Último acceso: ${new Date().toLocaleString()}`;
+  setFeedback(`Autenticado como ${username} (${role})`);
 }
 
 function showAuth() {
@@ -81,8 +81,8 @@ function showAuth() {
   showTab("login");
 }
 
-async function requestCode(endpoint, options) {
-  const response = await fetch(`${API_BASE}/auth/${endpoint}`, options);
+async function requestJson(url, options) {
+  const response = await fetch(url, options);
   const payload = await response.json().catch(() => ({}));
   if (!response.ok) {
     throw new Error(payload.detail || "Error de autenticación");
@@ -93,7 +93,7 @@ async function requestCode(endpoint, options) {
 async function handleLogin(event) {
   event.preventDefault();
   try {
-    const payload = await requestCode("login", {
+    const payload = await requestJson(`${API_BASE}/auth/login`, {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
       body: new URLSearchParams({
@@ -102,17 +102,17 @@ async function handleLogin(event) {
       }),
       credentials: "include",
     });
-    setStatus(`Te hemos enviado un código a ${payload.username}.`);
-    showModal(payload.username, payload.purpose, payload.code_preview);
+    storeToken(payload.access_token);
+    await updateProfile(payload.access_token);
   } catch (error) {
-    setStatus(error.message);
+    setFeedback(error.message);
   }
 }
 
 async function handleRegister(event) {
   event.preventDefault();
   try {
-    const payload = await requestCode("register", {
+    const payload = await requestJson(`${API_BASE}/auth/register`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -121,31 +121,30 @@ async function handleRegister(event) {
       }),
       credentials: "include",
     });
-    setStatus(`Código enviado a ${payload.username}.`);
     showModal(payload.username, payload.purpose, payload.code_preview);
   } catch (error) {
-    setStatus(error.message);
+    setFeedback(error.message);
   }
 }
 
 async function handleConfirm() {
   const code = modalCodeInput.value.trim();
   if (!code || !pendingUser) {
-    setStatus("Introduce el código recibido por correo");
+    setFeedback("Introduce el código recibido por correo");
     return;
   }
   try {
-    const response = await requestCode("confirm", {
+    const payload = await requestJson(`${API_BASE}/auth/confirm`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ username: pendingUser, code, purpose: pendingPurpose }),
       credentials: "include",
     });
-    storeToken(response.access_token);
+    storeToken(payload.access_token);
     hideModal();
-    await updateProfile(response.access_token);
+    await updateProfile(payload.access_token);
   } catch (error) {
-    setStatus(error.message);
+    setFeedback(error.message);
   }
 }
 
@@ -157,7 +156,7 @@ async function handleLogout() {
   clearToken();
   hideModal();
   showAuth();
-  setStatus("Sesión cerrada");
+  setFeedback("Sesión cerrada");
 }
 
 async function updateProfile(token) {
@@ -174,7 +173,7 @@ async function updateProfile(token) {
   } catch (error) {
     clearToken();
     showAuth();
-    setStatus("Tu sesión expiró, vuelve a autenticarte");
+    setFeedback("Tu sesión expiró, vuelve a autenticarte");
   }
 }
 
@@ -183,7 +182,7 @@ registerBtn.addEventListener("click", handleRegister);
 modalConfirm.addEventListener("click", handleConfirm);
 modalClose.addEventListener("click", () => {
   hideModal();
-  setStatus("Necesitas autenticarte");
+  setFeedback("Necesitas autenticarte");
 });
 dashboardLogout.addEventListener("click", handleLogout);
 

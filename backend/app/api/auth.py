@@ -46,7 +46,7 @@ class RegisterPayload(BaseModel):
 class ConfirmPayload(BaseModel):
     username: EmailStr
     code: str
-    purpose: Optional[str] = "login"
+    purpose: Optional[str] = "register"
 
 
 def _build_refresh_response(access_token: str, refresh_token: str, role: str) -> JSONResponse:
@@ -79,7 +79,7 @@ def _issue_tokens(db: Session, user_record: User) -> JSONResponse:
     return _build_refresh_response(access_token, refresh_token, user_record.role)
 
 
-def _send_confirmation_code(db: Session, user_record: User, purpose: str = "login") -> JSONResponse:
+def _send_confirmation_code(db: Session, user_record: User, purpose: str = "register") -> JSONResponse:
     code = create_auth_code(db, user_record.id, purpose)
     send_confirmation_email(user_record, code)
     return JSONResponse({
@@ -91,11 +91,11 @@ def _send_confirmation_code(db: Session, user_record: User, purpose: str = "logi
 
 
 @router.post("/login")
-def login(form: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
+def login(form: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)) -> JSONResponse:
     user_record = get_user_by_username(db, form.username)
     if not user_record or not verify_password(form.password, user_record.hashed_password):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Credenciales inválidas")
-    return _send_confirmation_code(db, user_record, purpose="login")
+    return _issue_tokens(db, user_record)
 
 
 @router.post("/register")
@@ -120,7 +120,7 @@ def confirm(payload: ConfirmPayload, db: Session = Depends(get_db)) -> JSONRespo
     user_record = get_user_by_username(db, payload.username)
     if not user_record:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Usuario no encontrado")
-    code_record = get_valid_auth_code(db, user_record.id, payload.code, payload.purpose or "login")
+    code_record = get_valid_auth_code(db, user_record.id, payload.code, payload.purpose or "register")
     if not code_record:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Código inválido o expirado")
     mark_auth_code_used(db, code_record)
@@ -128,7 +128,7 @@ def confirm(payload: ConfirmPayload, db: Session = Depends(get_db)) -> JSONRespo
 
 
 @router.post("/refresh")
-def refresh(refresh_token: Optional[str] = Cookie(None), db: Session = Depends(get_db)):
+def refresh(refresh_token: Optional[str] = Cookie(None), db: Session = Depends(get_db)) -> JSONResponse:
     if not refresh_token:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Token de refresco no proporcionado")
 
@@ -150,7 +150,7 @@ def refresh(refresh_token: Optional[str] = Cookie(None), db: Session = Depends(g
 
 
 @router.post("/logout")
-def logout(refresh_token: Optional[str] = Cookie(None), db: Session = Depends(get_db)):
+def logout(refresh_token: Optional[str] = Cookie(None), db: Session = Depends(get_db)) -> JSONResponse:
     if refresh_token:
         try:
             token_payload = decode_token(refresh_token)
@@ -166,10 +166,10 @@ def logout(refresh_token: Optional[str] = Cookie(None), db: Session = Depends(ge
 
 
 @router.get("/me")
-def profile(user: User = Depends(get_current_active_user)):
-    return {"username": user.username, "role": user.role}
+def profile(user: User = Depends(get_current_active_user)) -> JSONResponse:
+    return JSONResponse({"username": user.username, "role": user.role})
 
 
 @router.get("/admin")
-def admin_only(user: User = Depends(get_current_user(role=Role.ADMIN))):
-    return {"msg": f"Bienvenido administrador {user.username}"}
+def admin_only(user: User = Depends(get_current_user(role=Role.ADMIN))) -> JSONResponse:
+    return JSONResponse({"msg": f"Bienvenido administrador {user.username}"})
