@@ -1,6 +1,6 @@
 # Backend
 
-Servicio API para cron jobs, ingestión de métricas y automatización.
+Servicio API para cron jobs, ingestión de métricas y automatización dentro de `instagramproyect`.
 
 ## Puntos clave
 - `Dockerfile` minimalista con Python 3.12 y Uvicorn.
@@ -8,5 +8,5 @@ Servicio API para cron jobs, ingestión de métricas y automatización.
 - Variables de entorno en `.env.example` para separar configuración.
 
 ## Despliegue local
-docker build -t repositorio2-backend ./backend
-docker run --rm -p 8000:8000 --env-file backend/.env.example repositorio2-backend
+docker build -t instagramproyect-backend ./backend
+docker run --rm -p 8000:8000 --env-file backend/.env.example instagramproyect-backend

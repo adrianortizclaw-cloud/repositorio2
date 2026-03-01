@@ -1,6 +1,6 @@
-# Proyecto de automatización, monitorización y análisis de Instagram
+# InstagramProyect
 
-Este repositorio contiene la infraestructura base del proyecto profesional: frontend, backend y base de datos separados, cada uno con su Dockerfile, y todo orquestado via Docker Compose.
+Este repositorio (`instagramproyect`) contiene la infraestructura base del proyecto profesional: frontend, backend y base de datos separados, cada uno con su Dockerfile, y todo orquestado via Docker Compose.
 
 ## Arquitectura
 1. **Frontend** — SPA ligera (Node) que ofrece dashboards multiusuario.
