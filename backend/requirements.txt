@@ -2,3 +2,8 @@ fastapi
 uvicorn[standard]
 psycopg[binary]
 httpx
+python-jose[cryptography]
+passlib[bcrypt]
+sqlalchemy
+authlib
+alembic
