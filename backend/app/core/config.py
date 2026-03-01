@@ -6,7 +6,6 @@ from typing import List
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
         env_file=".env",
-        case_sensitive=True,
         extra="allow",
     )
 
@@ -25,7 +24,7 @@ class Settings(BaseSettings):
     instagram_app_secret: str = Field("")
     instagram_callback_url: str = Field("http://localhost:8000/api/instagram/callback")
     instagram_graph_version: str = Field("v18.0")
-    instagram_scopes_env: str = Field("")
+    instagram_scopes_env: str = Field("", env="INSTAGRAM_SCOPES")
 
     @property
     def instagram_scopes(self) -> List[str]:
