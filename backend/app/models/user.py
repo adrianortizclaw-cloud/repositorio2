@@ -1,6 +1,6 @@
 import uuid
 from datetime import datetime
-from typing import List, Optional
+from typing import Optional
 
 from sqlalchemy import Column, String, Boolean, DateTime, ForeignKey
 from sqlalchemy.sql import func
@@ -41,4 +41,4 @@ class RefreshToken(Base):
     user = relationship("User", back_populates="refresh_tokens")
 
 
-from .auth_code import AuthCode  # noqa: F401 (ensure class registration)
+from .auth_code import AuthCode  # noqa: F401
