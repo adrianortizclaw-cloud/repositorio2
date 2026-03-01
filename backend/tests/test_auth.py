@@ -1,6 +1,10 @@
+import pytest
 from fastapi.testclient import TestClient
 
-from app.database.session import reset_db
+from app.database.session import SessionLocal, reset_db
+from app.models.auth_code import AuthCode
+from app.models.pending_registration import PendingRegistration
+from app.models.user import RefreshToken, User
 from app.scripts.seed_users import seed_users
 from app.main import app
 
@@ -12,7 +16,8 @@ USER_CREDENTIALS = {
 }
 
 
-def setup_module() -> None:
+@pytest.fixture(autouse=True)
+def prepare_database() -> None:
     reset_db()
     seed_users()
 
@@ -95,3 +100,46 @@ def test_register_flow_and_auto_login() -> None:
     USER_CREDENTIALS[new_user] = new_password
     second_token = login(new_user)
     assert second_token
+
+
+def test_register_creates_pending_and_auth_code_records() -> None:
+    pending_username = "pending@example.com"
+    register_user(pending_username, "pendingpass123")
+    session = SessionLocal()
+    try:
+        pending = session.query(PendingRegistration).filter(PendingRegistration.username == pending_username).first()
+        assert pending is not None
+        auth_code = session.query(AuthCode).filter(AuthCode.pending_registration_id == pending.id).first()
+        assert auth_code is not None
+        assert not auth_code.used
+        assert auth_code.pending_registration_id == pending.id
+    finally:
+        session.close()
+
+
+def test_confirm_registration_cleans_up_pending_and_refresh_relationships() -> None:
+    confirm_username = "confirm@example.com"
+    confirm_password = "confirmsecret"
+    code, username, purpose = register_user(confirm_username, confirm_password)
+    session = SessionLocal()
+    try:
+        pending = session.query(PendingRegistration).filter(PendingRegistration.username == username).first()
+        assert pending is not None
+        pending_id = pending.id
+    finally:
+        session.close()
+
+    confirm_code(username, code, purpose=purpose)
+    session = SessionLocal()
+    try:
+        assert session.query(PendingRegistration).filter(PendingRegistration.id == pending_id).first() is None
+        auth_code = session.query(AuthCode).filter(AuthCode.pending_registration_id == pending_id).first()
+        assert auth_code is not None
+        assert auth_code.used
+        user = session.query(User).filter(User.username == confirm_username).first()
+        assert user is not None
+        refresh_token = session.query(RefreshToken).filter(RefreshToken.user_id == user.id).first()
+        assert refresh_token is not None
+        assert not refresh_token.revoked
+    finally:
+        session.close()
