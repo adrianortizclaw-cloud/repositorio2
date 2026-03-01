@@ -73,6 +73,9 @@ function showDashboard(username, role) {
   dashboardPage.classList.remove("hidden");
   dashboardSubtitle.textContent = `Último acceso: ${new Date().toLocaleString()}`;
   setFeedback(`Autenticado como ${username} (${role})`);
+  if (window.location.pathname !== DASHBOARD_PATH) {
+    navigate(DASHBOARD_PATH);
+  }
 }
 
 function showAuth() {
@@ -80,6 +83,9 @@ function showAuth() {
   dashboardPage.classList.add("hidden");
   authPage.classList.remove("hidden");
   showTab("login");
+  if (window.location.pathname !== AUTH_PATH) {
+    navigate(AUTH_PATH);
+  }
 }
 
 function updateRegisterButtonState() {
@@ -199,10 +205,37 @@ loginTabButtons.forEach((button) => {
   input.addEventListener("input", updateRegisterButtonState);
 });
 
-window.addEventListener("load", async () => {
-  updateRegisterButtonState();
+const AUTH_PATH = "/login";
+const DASHBOARD_PATH = "/dashboard";
+
+function navigate(path, replace = false) {
+  if (replace) {
+    window.history.replaceState(null, "", path);
+  } else {
+    window.history.pushState(null, "", path);
+  }
+}
+
+function renderRoute() {
   const token = readToken();
   if (token) {
-    await updateProfile(token);
+    if (window.location.pathname !== DASHBOARD_PATH) {
+      navigate(DASHBOARD_PATH, true);
+    }
+    updateProfile(token);
+    return;
   }
+  if (window.location.pathname !== AUTH_PATH) {
+    navigate(AUTH_PATH, true);
+  }
+  showAuth();
+}
+
+window.addEventListener("load", async () => {
+  updateRegisterButtonState();
+  renderRoute();
+});
+
+window.addEventListener("popstate", () => {
+  renderRoute();
 });
