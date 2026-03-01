@@ -1,0 +1,42 @@
+version: "3.9"
+
+services:
+  frontend:
+    build: ./frontend
+    env_file:
+      - frontend/.env.example
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend
+    networks:
+      - appnet
+
+  backend:
+    build: ./backend
+    env_file:
+      - backend/.env.example
+    ports:
+      - "8000:8000"
+    depends_on:
+      - database
+    networks:
+      - appnet
+
+  database:
+    build: ./database
+    env_file:
+      - database/.env.example
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    networks:
+      - appnet
+
+volumes:
+  db_data:
+
+networks:
+  appnet:
+    driver: bridge
