@@ -1,4 +1,4 @@
-from pydantic import Field
+from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from typing import List
 
@@ -18,6 +18,14 @@ class Settings(BaseSettings):
     cookie_secure: bool = Field(False)
     cookie_samesite: str = Field("lax")
     allowed_origins: List[str] = Field(default_factory=lambda: ["http://localhost:3000", "http://frontend:3000"])
+
+    @field_validator("allowed_origins", mode="before")
+    @classmethod
+    def split_allowed_origins(cls, v):
+        if isinstance(v, str):
+            return [origin.strip() for origin in v.split(",") if origin.strip()]
+        return v
+
     database_url: str = Field("sqlite:///./instagramproyect.db")
     frontend_origin: str = Field("http://localhost:3000")
     instagram_app_id: str = Field("")
