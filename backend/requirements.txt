@@ -10,3 +10,4 @@ alembic
 python-dotenv
 pydantic-settings
 python-multipart
+email-validator

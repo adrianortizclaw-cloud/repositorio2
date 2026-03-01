@@ -62,3 +62,20 @@ def test_refresh_after_logout_is_denied() -> None:
 
     refresh_response = client.post("/auth/refresh")
     assert refresh_response.status_code == 401
+
+
+def test_register_flow_and_login() -> None:
+    new_user = "tester@example.com"
+    new_password = "ultrasecret"
+    response = client.post(
+        "/auth/register",
+        json={"username": new_user, "password": new_password},
+    )
+    assert response.status_code == 200
+    assert response.json()["role"] == "client"
+
+    USER_CREDENTIALS[new_user] = new_password
+    token = login(new_user)
+    profile = client.get("/auth/me", headers={"Authorization": f"Bearer {token}"})
+    assert profile.status_code == 200
+    assert profile.json()["username"] == new_user

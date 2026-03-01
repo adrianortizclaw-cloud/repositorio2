@@ -5,6 +5,7 @@ from uuid import uuid4
 from fastapi import APIRouter, Depends, HTTPException, status, Cookie
 from fastapi.responses import JSONResponse
 from fastapi.security import OAuth2PasswordRequestForm
+from pydantic import BaseModel, EmailStr
 from sqlalchemy.orm import Session
 
 from ..core.config import settings
@@ -15,6 +16,7 @@ from ..core.security import (
     verify_password,
     hash_token,
     decode_token,
+    get_password_hash,
 )
 from ..database.session import get_db
 from ..models.user import User
@@ -28,6 +30,13 @@ from ..services.auth_service import (
 from ..api.dependencies import get_current_user, get_current_active_user
 
 router = APIRouter()
+
+
+class RegisterPayload(BaseModel):
+    username: EmailStr
+    password: str
+    role: Role = Role.CLIENT
+    full_name: Optional[str] = None
 
 
 def _build_refresh_response(access_token: str, refresh_token: str, role: str) -> JSONResponse:
@@ -123,3 +132,20 @@ def profile(user: User = Depends(get_current_active_user)):
 @router.get("/admin")
 def admin_only(user: User = Depends(get_current_user(role=Role.ADMIN))):
     return {"msg": f"Bienvenido administrador {user.username}"}
+
+
+@router.post("/register")
+def register(payload: RegisterPayload, db: Session = Depends(get_db)):
+    existing = get_user_by_username(db, payload.username)
+    if existing:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Usuario ya registrado")
+    user = User(
+        username=payload.username,
+        full_name=payload.full_name,
+        role=payload.role.value,
+        hashed_password=get_password_hash(payload.password),
+    )
+    db.add(user)
+    db.commit()
+    db.refresh(user)
+    return {"msg": f"Usuario {user.username} creado", "role": user.role}

@@ -3,6 +3,7 @@ const API_BASE = window.APP_CONFIG.apiBase;
 const loginForm = document.getElementById("login-form");
 const logoutBtn = document.getElementById("logout-btn");
 const refreshBtn = document.getElementById("refresh-btn");
+const registerForm = document.getElementById("register-form");
 const statusEl = document.getElementById("status");
 
 const STORAGE_KEY = "instagramproyect_access";
@@ -90,6 +91,27 @@ async function handleRefresh() {
   await updateProfile(data.access_token);
 }
 
+async function handleRegister(event) {
+  event.preventDefault();
+  const form = new FormData(registerForm);
+  const payload = {
+    username: form.get("reg-username"),
+    password: form.get("reg-password"),
+  };
+  const response = await fetch(`${API_BASE}/auth/register`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  if (!response.ok) {
+    const detail = await response.json().catch(() => ({}));
+    setStatus(`Registro fallido: ${detail.detail || response.statusText}`);
+    return;
+  }
+  const data = await response.json();
+  setStatus(`Registrado ${data.role}: ${data.msg}`);
+}
+
 async function updateProfile(token) {
   try {
     const profile = await fetchProfile(token);
@@ -102,6 +124,7 @@ async function updateProfile(token) {
 loginForm.addEventListener("submit", handleLogin);
 logoutBtn.addEventListener("click", handleLogout);
 refreshBtn.addEventListener("click", handleRefresh);
+registerForm.addEventListener("submit", handleRegister);
 
 const storedToken = readToken();
 if (storedToken) {
