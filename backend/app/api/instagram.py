@@ -1,6 +1,6 @@
 from secrets import token_urlsafe
 
-from fastapi import APIRouter, Depends, Header, HTTPException
+from fastapi import APIRouter, Depends, Header, HTTPException, status
 from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session
 
@@ -27,8 +27,22 @@ def _instagram_from_session(session: InstagramSession) -> Instagram:
     return Instagram(decrypt_secret(session.access_token_encrypted))
 
 
+def _ensure_instagram_configured() -> None:
+    missing = []
+    if not settings.instagram_app_id:
+        missing.append("INSTAGRAM_APP_ID")
+    if not settings.instagram_app_secret:
+        missing.append("INSTAGRAM_APP_SECRET")
+    if missing:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=f"Configure {', '.join(missing)} in your environment to connect with Instagram",
+        )
+
+
 @router.get("/login-url", response_model=InstagramLoginUrlResponse)
 def login_url(db: Session = Depends(get_db)):
+    _ensure_instagram_configured()
     state = token_urlsafe(32)
     db.add(InstagramAuthState(state=state))
     db.commit()
