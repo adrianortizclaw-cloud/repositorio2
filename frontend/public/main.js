@@ -22,6 +22,7 @@ const loginUsername = loginPane.querySelector("input[name=\"login-username\"]");
 const loginPassword = loginPane.querySelector("input[name=\"login-password\"]");
 const registerUsername = registerPane.querySelector("input[name=\"register-username\"]");
 const registerPassword = registerPane.querySelector("input[name=\"register-password\"]");
+const registerConfirm = registerPane.querySelector("input[name=\"register-confirm\"]");
 
 const STORAGE_KEY = "instagramproyect_access";
 let pendingUser = null;
@@ -79,6 +80,11 @@ function showAuth() {
   dashboardPage.classList.add("hidden");
   authPage.classList.remove("hidden");
   showTab("login");
+}
+
+function updateRegisterButtonState() {
+  const valid = registerUsername.value.trim() && registerPassword.value && registerPassword.value === registerConfirm.value;
+  registerBtn.disabled = !valid;
 }
 
 async function requestJson(url, options) {
@@ -182,7 +188,6 @@ registerBtn.addEventListener("click", handleRegister);
 modalConfirm.addEventListener("click", handleConfirm);
 modalClose.addEventListener("click", () => {
   hideModal();
-  setFeedback("Necesitas autenticarte");
 });
 dashboardLogout.addEventListener("click", handleLogout);
 
@@ -190,7 +195,12 @@ loginTabButtons.forEach((button) => {
   button.addEventListener("click", () => showTab(button.dataset.tab));
 });
 
+[registerPassword, registerConfirm, registerUsername].forEach((input) => {
+  input.addEventListener("input", updateRegisterButtonState);
+});
+
 window.addEventListener("load", async () => {
+  updateRegisterButtonState();
   const token = readToken();
   if (token) {
     await updateProfile(token);

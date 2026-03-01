@@ -1,13 +1,13 @@
 from datetime import datetime, timedelta
 from typing import Optional
 from uuid import uuid4
-import random
 
 from sqlalchemy.orm import Session
 
 from ..core.security import hash_token, verify_password
 from ..models.user import User, RefreshToken
 from ..models.auth_code import AuthCode
+from ..models.pending_registration import PendingRegistration
 from ..core.config import settings
 
 
@@ -34,11 +34,33 @@ def revoke_refresh_token(db: Session, token: RefreshToken) -> None:
     db.commit()
 
 
-def create_auth_code(db: Session, user_id: str, purpose: str = "login") -> str:
-    code = f"{random.randint(0, 999999):06d}"
-    expires_at = datetime.utcnow() + timedelta(minutes=settings.auth_code_expire_minutes)
+def create_pending_registration(db: Session, username: str, hashed_password: str, role: str, full_name: Optional[str], expires_at: datetime) -> PendingRegistration:
+    pending = PendingRegistration(
+        username=username,
+        hashed_password=hashed_password,
+        role=role,
+        full_name=full_name,
+        expires_at=expires_at,
+    )
+    db.add(pending)
+    db.commit()
+    db.refresh(pending)
+    return pending
+
+
+def get_pending_registration(db: Session, username: str) -> Optional[PendingRegistration]:
+    return db.query(PendingRegistration).filter(PendingRegistration.username == username).first()
+
+
+def delete_pending_registration(db: Session, pending: PendingRegistration) -> None:
+    db.delete(pending)
+    db.commit()
+
+
+def create_auth_code(db: Session, code: str, expires_at: datetime, purpose: str = "register", user: Optional[User] = None, pending: Optional[PendingRegistration] = None) -> AuthCode:
     record = AuthCode(
-        user_id=user_id,
+        user_id=user.id if user else None,
+        pending_registration_id=pending.id if pending else None,
         code_hash=hash_token(code),
         purpose=purpose,
         expires_at=expires_at,
@@ -46,18 +68,22 @@ def create_auth_code(db: Session, user_id: str, purpose: str = "login") -> str:
     db.add(record)
     db.commit()
     db.refresh(record)
-    return code
+    return record
 
 
-def get_valid_auth_code(db: Session, user_id: str, code: str, purpose: str = "login") -> Optional[AuthCode]:
-    record = (
-        db.query(AuthCode)
-        .filter(AuthCode.user_id == user_id)
-        .filter(AuthCode.purpose == purpose)
-        .filter(AuthCode.used == False)
-        .order_by(AuthCode.created_at.desc())
-        .first()
-    )
+def get_valid_auth_code(db: Session, username: str, code: str, purpose: str = "register") -> Optional[AuthCode]:
+    query = db.query(AuthCode).filter(AuthCode.purpose == purpose, AuthCode.used == False)
+    if purpose == "register":
+        pending = get_pending_registration(db, username)
+        if not pending:
+            return None
+        query = query.filter(AuthCode.pending_registration_id == pending.id)
+    else:
+        user = get_user_by_username(db, username)
+        if not user:
+            return None
+        query = query.filter(AuthCode.user_id == user.id)
+    record = query.order_by(AuthCode.created_at.desc()).first()
     if not record or record.expires_at < datetime.utcnow():
         return None
     if not verify_password(code, record.code_hash):
@@ -71,6 +97,5 @@ def mark_auth_code_used(db: Session, record: AuthCode) -> None:
     db.commit()
 
 
-def send_confirmation_email(user: User, code: str) -> None:
-    recipient = user.username
-    print(f"[auth] Enviando código {code} a {recipient}")
+def send_confirmation_email(email: str, code: str) -> None:
+    print(f"[auth] Enviando código {code} a {email}")

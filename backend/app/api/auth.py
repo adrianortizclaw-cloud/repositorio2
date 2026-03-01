@@ -1,3 +1,4 @@
+import random
 from datetime import datetime, timedelta
 from typing import Optional
 from uuid import uuid4
@@ -20,12 +21,15 @@ from ..core.security import (
 )
 from ..database.session import get_db
 from ..models.user import User
-from ..schemas.token import TokenPayload
+from ..models.pending_registration import PendingRegistration
 from ..services.auth_service import (
     get_user_by_username,
     create_refresh_token_record,
     get_refresh_token_by_jti,
     revoke_refresh_token,
+    create_pending_registration,
+    get_pending_registration,
+    delete_pending_registration,
     create_auth_code,
     get_valid_auth_code,
     mark_auth_code_used,
@@ -79,14 +83,16 @@ def _issue_tokens(db: Session, user_record: User) -> JSONResponse:
     return _build_refresh_response(access_token, refresh_token, user_record.role)
 
 
-def _send_confirmation_code(db: Session, user_record: User, purpose: str = "register") -> JSONResponse:
-    code = create_auth_code(db, user_record.id, purpose)
-    send_confirmation_email(user_record, code)
+def _send_confirmation_code(db: Session, pending: PendingRegistration) -> JSONResponse:
+    code = f"{random.randint(0, 999999):06d}"
+    expires = datetime.utcnow() + timedelta(minutes=settings.auth_code_expire_minutes)
+    create_auth_code(db, code, expires, purpose="register", pending=pending)
+    send_confirmation_email(pending.username, code)
     return JSONResponse({
         "detail": "Código enviado",
         "code_preview": code,
-        "username": user_record.username,
-        "purpose": purpose,
+        "username": pending.username,
+        "purpose": "register",
     })
 
 
@@ -100,27 +106,40 @@ def login(form: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get
 
 @router.post("/register")
 def register(payload: RegisterPayload, db: Session = Depends(get_db)) -> JSONResponse:
-    existing = get_user_by_username(db, payload.username)
-    if existing:
+    if get_user_by_username(db, payload.username):
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Usuario ya registrado")
-    user = User(
-        username=payload.username,
-        full_name=payload.full_name,
-        role=payload.role.value,
-        hashed_password=get_password_hash(payload.password),
-    )
-    db.add(user)
-    db.commit()
-    db.refresh(user)
-    return _send_confirmation_code(db, user, purpose="register")
+    if get_pending_registration(db, payload.username):
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Ya se ha solicitado una confirmación para ese email")
+    expires = datetime.utcnow() + timedelta(minutes=settings.auth_code_expire_minutes)
+    pending = create_pending_registration(db, payload.username, get_password_hash(payload.password), payload.role.value, payload.full_name, expires)
+    return _send_confirmation_code(db, pending)
 
 
 @router.post("/confirm")
 def confirm(payload: ConfirmPayload, db: Session = Depends(get_db)) -> JSONResponse:
+    if payload.purpose == "register":
+        pending = get_pending_registration(db, payload.username)
+        if not pending:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Solicitud no encontrada")
+        code_record = get_valid_auth_code(db, pending.username, payload.code, purpose="register")
+        if not code_record:
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Código inválido o expirado")
+        mark_auth_code_used(db, code_record)
+        user = User(
+            username=pending.username,
+            full_name=pending.full_name,
+            role=pending.role,
+            hashed_password=pending.hashed_password,
+        )
+        db.add(user)
+        db.commit()
+        db.refresh(user)
+        delete_pending_registration(db, pending)
+        return _issue_tokens(db, user)
     user_record = get_user_by_username(db, payload.username)
     if not user_record:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Usuario no encontrado")
-    code_record = get_valid_auth_code(db, user_record.id, payload.code, payload.purpose or "register")
+    code_record = get_valid_auth_code(db, user_record.username, payload.code, purpose=payload.purpose or "login")
     if not code_record:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Código inválido o expirado")
     mark_auth_code_used(db, code_record)
