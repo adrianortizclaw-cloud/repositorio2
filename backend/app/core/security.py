@@ -54,3 +54,21 @@ def decode_token(token: str) -> TokenPayload:
 def get_token_role_value(token: str) -> str:
     payload = jwt.decode(token, settings.secret_key, algorithms=[settings.algorithm])
     return payload.get("role", "guest")
+
+
+def encrypt_secret(value: str) -> str:
+    from cryptography.fernet import Fernet
+
+    digest = hashlib.sha256(settings.secret_key.encode("utf-8")).digest()
+    key = base64.urlsafe_b64encode(digest)
+    f = Fernet(key)
+    return f.encrypt(value.encode("utf-8")).decode("utf-8")
+
+
+def decrypt_secret(value: str) -> str:
+    from cryptography.fernet import Fernet
+
+    digest = hashlib.sha256(settings.secret_key.encode("utf-8")).digest()
+    key = base64.urlsafe_b64encode(digest)
+    f = Fernet(key)
+    return f.decrypt(value.encode("utf-8")).decode("utf-8")
