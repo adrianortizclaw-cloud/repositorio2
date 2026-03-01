@@ -17,11 +17,31 @@ def setup_module() -> None:
     seed_users()
 
 
-def login(username: str) -> str:
-    client.cookies.clear()
+def request_code(route: str, username: str) -> str:
     response = client.post(
-        "/auth/login",
-        data={"username": username, "password": USER_CREDENTIALS.get(username, "secret")},
+        f"/auth/{route}",
+        data={"username": username, "password": USER_CREDENTIALS[username]},
+        headers={"Content-Type": "application/x-www-form-urlencoded"},
+    )
+    response.raise_for_status()
+    payload = response.json()
+    return payload.get("code_preview"), payload.get("username")
+
+
+def register_user(username: str, password: str) -> str:
+    response = client.post(
+        "/auth/register",
+        json={"username": username, "password": password},
+    )
+    response.raise_for_status()
+    payload = response.json()
+    return payload.get("code_preview"), payload.get("username")
+
+
+def confirm_code(username: str, code: str, purpose: str = "login") -> str:
+    response = client.post(
+        "/auth/confirm",
+        json={"username": username, "code": code, "purpose": purpose},
     )
     response.raise_for_status()
     return response.json()["access_token"]
@@ -34,7 +54,9 @@ def test_health_endpoint() -> None:
 
 
 def test_login_and_refresh_flow() -> None:
-    access_token = login("client@example.com")
+    code, username = request_code("login", "client@example.com")
+    assert code
+    access_token = confirm_code(username, code)
 
     profile = client.get("/auth/me", headers={"Authorization": f"Bearer {access_token}"})
     assert profile.status_code == 200
@@ -46,18 +68,21 @@ def test_login_and_refresh_flow() -> None:
 
 
 def test_admin_route_restricted_to_admins() -> None:
-    admin_token = login("admin@example.com")
+    admin_code, admin_user = request_code("login", "admin@example.com")
+    admin_token = confirm_code(admin_user, admin_code)
     response = client.get("/auth/admin", headers={"Authorization": f"Bearer {admin_token}"})
     assert response.status_code == 200
 
-    client_token = login("client@example.com")
+    client_code, client_user = request_code("login", "client@example.com")
+    client_token = confirm_code(client_user, client_code)
     response = client.get("/auth/admin", headers={"Authorization": f"Bearer {client_token}"})
     assert response.status_code == 403
 
 
 def test_refresh_after_logout_is_denied() -> None:
-    login("client@example.com")
-    logout_response = client.post("/auth/logout")
+    code, username = request_code("login", "client@example.com")
+    token = confirm_code(username, code)
+    logout_response = client.post("/auth/logout", headers={"Authorization": f"Bearer {token}"})
     assert logout_response.status_code == 200
 
     refresh_response = client.post("/auth/refresh")
@@ -67,19 +92,15 @@ def test_refresh_after_logout_is_denied() -> None:
 def test_register_flow_and_auto_login() -> None:
     new_user = "tester@example.com"
     new_password = "ultrasecret"
-    response = client.post(
-        "/auth/register",
-        json={"username": new_user, "password": new_password},
-    )
-    assert response.status_code == 200
-    payload = response.json()
-    assert "access_token" in payload
-
-    USER_CREDENTIALS[new_user] = new_password
-    profile = client.get("/auth/me", headers={"Authorization": f"Bearer {payload['access_token']}"})
+    code, username = register_user(new_user, new_password)
+    assert code
+    token = confirm_code(username, code, purpose="register")
+    profile = client.get("/auth/me", headers={"Authorization": f"Bearer {token}"})
     assert profile.status_code == 200
     assert profile.json()["username"] == new_user
 
-    # Further login with the new user should also work
-    token = login(new_user)
-    assert token
+    USER_CREDENTIALS[new_user] = new_password
+    second_code, username = request_code("login", new_user)
+    assert second_code
+    second_token = confirm_code(username, second_code)
+    assert second_token

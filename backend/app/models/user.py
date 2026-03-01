@@ -23,6 +23,7 @@ class User(Base):
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 
     refresh_tokens = relationship("RefreshToken", back_populates="user", cascade="all, delete-orphan")
+    auth_codes = relationship("AuthCode", back_populates="user", cascade="all, delete-orphan")
 
 
 class RefreshToken(Base):
@@ -38,3 +39,6 @@ class RefreshToken(Base):
     revoked_at = Column(DateTime(timezone=True), nullable=True)
 
     user = relationship("User", back_populates="refresh_tokens")
+
+
+from .auth_code import AuthCode  # noqa: F401 (ensure class registration)

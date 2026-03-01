@@ -12,6 +12,7 @@ class Settings(BaseSettings):
     algorithm: str = "HS256"
     access_token_expire_minutes: int = 15
     refresh_token_expire_days: int = 14
+    auth_code_expire_minutes: int = 10
     refresh_cookie_name: str = "refresh_token"
     cookie_secure: bool = False
     cookie_samesite: str = "lax"

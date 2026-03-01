@@ -26,6 +26,10 @@ from ..services.auth_service import (
     create_refresh_token_record,
     get_refresh_token_by_jti,
     revoke_refresh_token,
+    create_auth_code,
+    get_valid_auth_code,
+    mark_auth_code_used,
+    send_confirmation_email,
 )
 from ..api.dependencies import get_current_user, get_current_active_user
 
@@ -37,6 +41,12 @@ class RegisterPayload(BaseModel):
     password: str
     role: Role = Role.CLIENT
     full_name: Optional[str] = None
+
+
+class ConfirmPayload(BaseModel):
+    username: EmailStr
+    code: str
+    purpose: Optional[str] = "login"
 
 
 def _build_refresh_response(access_token: str, refresh_token: str, role: str) -> JSONResponse:
@@ -69,12 +79,51 @@ def _issue_tokens(db: Session, user_record: User) -> JSONResponse:
     return _build_refresh_response(access_token, refresh_token, user_record.role)
 
 
+def _send_confirmation_code(db: Session, user_record: User, purpose: str = "login") -> JSONResponse:
+    code = create_auth_code(db, user_record.id, purpose)
+    send_confirmation_email(user_record, code)
+    return JSONResponse({
+        "detail": "Código enviado",
+        "code_preview": code,
+        "username": user_record.username,
+        "purpose": purpose,
+    })
+
+
 @router.post("/login")
 def login(form: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
     user_record = get_user_by_username(db, form.username)
     if not user_record or not verify_password(form.password, user_record.hashed_password):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Credenciales inválidas")
+    return _send_confirmation_code(db, user_record, purpose="login")
 
+
+@router.post("/register")
+def register(payload: RegisterPayload, db: Session = Depends(get_db)) -> JSONResponse:
+    existing = get_user_by_username(db, payload.username)
+    if existing:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Usuario ya registrado")
+    user = User(
+        username=payload.username,
+        full_name=payload.full_name,
+        role=payload.role.value,
+        hashed_password=get_password_hash(payload.password),
+    )
+    db.add(user)
+    db.commit()
+    db.refresh(user)
+    return _send_confirmation_code(db, user, purpose="register")
+
+
+@router.post("/confirm")
+def confirm(payload: ConfirmPayload, db: Session = Depends(get_db)) -> JSONResponse:
+    user_record = get_user_by_username(db, payload.username)
+    if not user_record:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Usuario no encontrado")
+    code_record = get_valid_auth_code(db, user_record.id, payload.code, payload.purpose or "login")
+    if not code_record:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Código inválido o expirado")
+    mark_auth_code_used(db, code_record)
     return _issue_tokens(db, user_record)
 
 
@@ -124,20 +173,3 @@ def profile(user: User = Depends(get_current_active_user)):
 @router.get("/admin")
 def admin_only(user: User = Depends(get_current_user(role=Role.ADMIN))):
     return {"msg": f"Bienvenido administrador {user.username}"}
-
-
-@router.post("/register")
-def register(payload: RegisterPayload, db: Session = Depends(get_db)) -> JSONResponse:
-    existing = get_user_by_username(db, payload.username)
-    if existing:
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Usuario ya registrado")
-    user = User(
-        username=payload.username,
-        full_name=payload.full_name,
-        role=payload.role.value,
-        hashed_password=get_password_hash(payload.password),
-    )
-    db.add(user)
-    db.commit()
-    db.refresh(user)
-    return _issue_tokens(db, user)
