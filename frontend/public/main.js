@@ -217,19 +217,20 @@ function navigate(path, replace = false) {
 }
 
 function renderRoute() {
-  document.body.classList.remove("route-loading");
-  authPage.removeAttribute("data-cloak");
   const token = readToken();
   if (token) {
     if (window.location.pathname !== DASHBOARD_PATH) {
       navigate(DASHBOARD_PATH, true);
     }
+    authPage.classList.add("hidden");
+    document.body.classList.remove("route-loading");
     updateProfile(token);
     return;
   }
   if (window.location.pathname !== AUTH_PATH) {
     navigate(AUTH_PATH, true);
   }
+  document.body.classList.remove("route-loading");
   showAuth();
 }
 
