@@ -1,4 +1,4 @@
-export function createDashboardPage({ onLogout }) {
+export function createDashboardPage({ onLogout, onAddInstagram }) {
   const container = document.createElement("div");
   container.className = "page dashboard";
   container.innerHTML = `
@@ -7,7 +7,14 @@ export function createDashboardPage({ onLogout }) {
         <h1>Dashboard</h1>
         <p id="dashboard-subtitle">Resumen rápido de InstagramProyect.</p>
       </div>
-      <button class="logout-btn" id="dashboard-logout">Cerrar sesión</button>
+      <div class="dashboard-actions">
+        <button class="instagram-btn" id="instagram-add">Add Instagram account</button>
+        <button class="logout-btn" id="dashboard-logout">Cerrar sesión</button>
+      </div>
+    </div>
+    <div class="instagram-summary">
+      <p id="instagram-username">Instagram: no conectado</p>
+      <p id="instagram-media">Publicaciones: 0</p>
     </div>
     <div class="metrics">
       <div class="metric-card">
@@ -25,6 +32,16 @@ export function createDashboardPage({ onLogout }) {
     </div>
   `;
   const logoutBtn = container.querySelector("#dashboard-logout");
+  const addBtn = container.querySelector("#instagram-add");
+  const usernameEl = container.querySelector("#instagram-username");
+  const mediaEl = container.querySelector("#instagram-media");
   logoutBtn.addEventListener("click", () => onLogout());
-  return container;
+  addBtn.addEventListener("click", () => onAddInstagram());
+
+  function setInstagramInfo({ username, mediaCount }) {
+    usernameEl.textContent = username ? `Instagram: ${username}` : "Instagram: no conectado";
+    mediaEl.textContent = `Publicaciones: ${mediaCount ?? 0}`;
+  }
+
+  return { element: container, setInstagramInfo };
 }

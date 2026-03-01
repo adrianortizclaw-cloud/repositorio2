@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from .api import auth
+from .api import auth, instagram
 from .core.config import settings
 from .database.session import init_db
 
@@ -16,6 +16,7 @@ app.add_middleware(
 )
 
 app.include_router(auth.router, prefix="/auth", tags=["auth"])
+app.include_router(instagram.router)
 
 @app.on_event("startup")
 def on_startup():
