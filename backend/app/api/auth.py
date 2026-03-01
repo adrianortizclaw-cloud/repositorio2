@@ -108,8 +108,8 @@ def login(form: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get
 def register(payload: RegisterPayload, db: Session = Depends(get_db)) -> JSONResponse:
     if get_user_by_username(db, payload.username):
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Usuario ya registrado")
-    if get_pending_registration(db, payload.username):
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Ya se ha solicitado una confirmación para ese email")
+    if pending := get_pending_registration(db, payload.username):
+        delete_pending_registration(db, pending)
     expires = datetime.utcnow() + timedelta(minutes=settings.auth_code_expire_minutes)
     pending = create_pending_registration(db, payload.username, get_password_hash(payload.password), payload.role.value, payload.full_name, expires)
     return _send_confirmation_code(db, pending)
