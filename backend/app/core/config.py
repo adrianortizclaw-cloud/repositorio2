@@ -15,7 +15,7 @@ class Settings(BaseSettings):
     refresh_cookie_name: str = "refresh_token"
     cookie_secure: bool = False
     cookie_samesite: str = "lax"
-    allowed_origins: List[str] = ["http://localhost:3000"]
+    allowed_origins: List[str] = ["http://localhost:3000", "http://frontend:3000"]
     database_url: str = "sqlite:///./instagramproyect.db"
 
 

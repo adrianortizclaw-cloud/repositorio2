@@ -45,10 +45,14 @@ async function handleLogin(event) {
   const response = await fetch(`${API_BASE}/auth/login`, {
     method: "POST",
     body: payload,
+    headers: {
+      "Content-Type": "application/x-www-form-urlencoded",
+    },
     credentials: "include",
   });
   if (!response.ok) {
-    setStatus("Login fallido");
+    const detail = await response.json().catch(() => ({}));
+    setStatus(`Login fallido: ${detail.detail || response.statusText}`);
     return;
   }
   const data = await response.json();
@@ -58,10 +62,14 @@ async function handleLogin(event) {
 }
 
 async function handleLogout() {
-  await fetch(`${API_BASE}/auth/logout`, {
+  const response = await fetch(`${API_BASE}/auth/logout`, {
     method: "POST",
     credentials: "include",
   });
+  if (!response.ok) {
+    setStatus("No se pudo cerrar sesión");
+    return;
+  }
   clearToken();
   setStatus("Sesión cerrada");
 }
@@ -72,7 +80,8 @@ async function handleRefresh() {
     credentials: "include",
   });
   if (!response.ok) {
-    setStatus("Refresh fallido");
+    const detail = await response.json().catch(() => ({}));
+    setStatus(`Refresh fallido: ${detail.detail || response.statusText}`);
     return;
   }
   const data = await response.json();
