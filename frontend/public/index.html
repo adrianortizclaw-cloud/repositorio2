@@ -67,8 +67,8 @@
       }
       .form-pane {
         display: none;
-        display: flex;
         flex-direction: column;
+        gap: 0.5rem;
       }
       .form-pane.active {
         display: flex;
@@ -80,7 +80,7 @@
         margin-bottom: 0.25rem;
       }
       input {
-        width: 100%;
+        width: calc(100% - 32px);
         padding: 0.85rem 1rem;
         border-radius: 0.85rem;
         border: 1px solid #e2e8f0;
@@ -206,6 +206,8 @@
             <input type="email" name="register-username" placeholder="nuevo@instagramproyect.com" required />
             <label>Contraseña</label>
             <input type="password" name="register-password" placeholder="Contraseña segura" required />
+            <label>Confirmar contraseña</label>
+            <input type="password" name="register-confirm" placeholder="Repite la contraseña" required />
             <button class="primary" id="register-btn">Submit</button>
           </div>
           <p class="feedback" id="status"></p>
